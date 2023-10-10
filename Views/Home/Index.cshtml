@@ -1,0 +1,104 @@
+﻿@{
+    ViewData["Title"] = "Record Audio";
+}
+
+
+@{
+    ViewData["Title"] = "Audio Recording";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>@ViewData["Title"]</title>
+    <!-- Include your JavaScript code here -->
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let recording = false;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('startRecording').addEventListener('click', function () {
+                audioChunks = [];
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(function (stream) {
+                        mediaRecorder = new MediaRecorder(stream);
+
+                        mediaRecorder.ondataavailable = function (event) {
+                            if (event.data.size > 0) {
+                                audioChunks.push(event.data);
+                            }
+                        };
+
+                        mediaRecorder.onstop = function () {
+                            saveRecordedAudio();
+                        };
+
+                        mediaRecorder.start();
+                        recording = true;
+                        document.getElementById('startRecording').disabled = true;
+                        document.getElementById('stopRecording').disabled = false;
+                    })
+                    .catch(function (err) {
+                        console.error('Error accessing microphone:', err);
+                    });
+            });
+
+            document.getElementById('stopRecording').addEventListener('click', function () {
+                if (recording) {
+                    mediaRecorder.stop();
+                    recording = false;
+                }
+                document.getElementById('startRecording').disabled = false;
+                document.getElementById('stopRecording').disabled = true;
+            });
+
+            function saveRecordedAudio() {
+                if (audioChunks.length === 0) {
+                    console.error('No audio data to save.');
+                    return;
+                }
+
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+
+                // Create a FormData object to send the audio data to the server
+                const formData = new FormData();
+                formData.append('audioData', audioBlob);
+
+                // Send the audio data to the server using a fetch POST request
+                fetch('/Home/SaveAudio', {
+                    method: 'POST',
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const successMessage = document.getElementById('successMessage');
+                            successMessage.innerHTML = '<p>' + data.message + '</p>';
+                        } else {
+                            const errorMessage = document.getElementById('errorMessage');
+                            errorMessage.innerHTML = '<p>' + data.message + '</p>';
+                            console.error('Error saving audio:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+            }
+        });
+    </script>
+</head>
+<body>
+
+    <h2>Record Audio</h2>
+
+
+    <!-- Your HTML content here -->
+    <button id="startRecording">Start Recording</button>
+    <button id="stopRecording" disabled>Stop Recording</button>
+
+    <div id="successMessage" style="color: lawngreen;"></div>
+    <div id="errorMessage" style="color: red;"></div>
+
+</body>
+</html>
